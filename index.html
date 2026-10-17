@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#101827">
+<title>ASHEN WORLD — Survival RPG v0.4</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101827;color:#f3f4f6;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+#game{position:relative;width:100%;height:100%;max-width:1200px;max-height:950px;margin:auto;overflow:hidden;background:#101827}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+.hud{position:absolute;top:max(7px,env(safe-area-inset-top));left:7px;right:7px;display:flex;gap:6px;align-items:flex-start;flex-wrap:wrap;pointer-events:none}
+.panel{background:#101827e8;border:1px solid #ffffff25;border-radius:10px;padding:7px 9px;box-shadow:0 4px 14px #0003}
+.brand{font-weight:950;letter-spacing:1.3px;color:#fbbf24;font-size:12px}
+.statline{font-size:11px;color:#e5e7eb;line-height:1.5}.statline b{color:#fbbf24}
+.bar{height:6px;background:#374151;border-radius:8px;overflow:hidden;width:100px;margin-top:3px}.fill{height:100%;width:100%;background:#fb7185}
+button{font:inherit;cursor:pointer;touch-action:manipulation}
+#help{position:absolute;top:104px;left:8px;max-width:210px;font-size:10px;line-height:1.45;color:#e5e7eb;background:#101827bf;border-radius:8px;padding:7px 9px;pointer-events:none}
+#message{position:absolute;top:22%;left:8%;right:8%;text-align:center;font-weight:900;font-size:clamp(16px,4vw,26px);color:#fde68a;text-shadow:0 2px 8px #000;pointer-events:none;opacity:0;transition:opacity .2s;z-index:4}
+#overlay{position:absolute;inset:0;background:#080d18e8;display:flex;align-items:center;justify-content:center;padding:18px;z-index:10}
+.card{width:min(500px,100%);max-height:90%;overflow:auto;background:linear-gradient(145deg,#202b3e,#111827);border:1px solid #ffffff25;border-radius:18px;padding:23px;box-shadow:0 20px 80px #0008}
+h1{font-size:clamp(30px,8vw,47px);line-height:.95;margin:0;color:#fbbf24;letter-spacing:-1.5px}
+.sub{color:#cbd5e1;line-height:1.5;font-size:13px}
+.primary{width:100%;border:0;border-radius:12px;padding:13px;background:#fbbf24;color:#271c0b;font-weight:900;margin-top:8px}
+.secondary{border:1px solid #ffffff28;border-radius:10px;background:#ffffff10;color:#fff;padding:8px 10px}
+.hidden{display:none!important}
+.mobile-controls{position:absolute;bottom:max(10px,env(safe-area-inset-bottom));left:9px;right:9px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none;z-index:2}
+.cluster{display:flex;gap:6px;pointer-events:auto}
+.ctrl{width:47px;height:47px;border:1px solid #ffffff33;border-radius:12px;background:#101827d9;color:white;font-size:20px;font-weight:900;user-select:none}
+.ctrl.action{width:58px;height:52px;background:#6d28d9e8;font-size:10px}
+.ctrl:active{background:#fbbf24;color:#111827}
+#quickbar{position:absolute;bottom:max(65px,calc(env(safe-area-inset-bottom) + 65px));left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:3;white-space:nowrap}
+#quickbar button{font-size:10px;padding:7px 8px} #quickbar{max-width:96%;overflow-x:auto}
+#quickbar .selected{outline:2px solid #fbbf24}
+#inventoryPanel{position:absolute;z-index:8;inset:8% 5% 8%;background:#111827f5;border:1px solid #ffffff35;border-radius:16px;padding:13px;overflow:auto;box-shadow:0 20px 70px #0009}
+.panelHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.panelHead h2{margin:0;font-size:21px;color:#fbbf24}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{font-size:12px}.tabs .selected{background:#fbbf24;color:#1f2937}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.item{background:#ffffff0b;border:1px solid #ffffff1b;border-radius:11px;padding:9px;min-width:0}
+.itemTop{display:flex;gap:8px;align-items:center}
+.itemIcon{font-size:25px;width:32px;text-align:center}
+.itemName{font-size:12px;font-weight:850;line-height:1.2}
+.itemDesc{font-size:10px;color:#cbd5e1;margin-top:5px;line-height:1.4}
+.itemCount{font-size:11px;color:#fbbf24;font-weight:800}
+.item button{margin-top:7px;width:100%;font-size:11px;padding:7px}
+#toast{position:absolute;z-index:9;bottom:160px;left:10%;right:10%;text-align:center;font-size:12px;color:#fde68a;pointer-events:none}
+@media(min-width:760px){.ctrl{width:56px;height:52px}#help{top:90px}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<div id="game">
+<canvas id="c"></canvas>
+<div class="hud">
+ <div class="panel"><div class="brand">ASHEN WORLD</div><div class="statline" id="timeLabel">День 1 · Утро</div><div class="statline">Уровень: <b id="levelText">1</b> · Опыт: <b id="xpText">0</b></div></div>
+ <div class="panel"><div class="statline">Здоровье <b id="hpText">100/100</b></div><div class="bar"><div class="fill" id="hpFill"></div></div><div class="statline">⚔️ <b id="weaponText">Деревянный меч · 8 урона</b></div></div>
+ <div class="panel"><div class="statline">🪙 <b id="coinText">0</b> · Убийства: <b id="killText">0</b></div><div class="statline">Босс: <b id="bossText">не пробуждён</b></div></div>
+</div>
+<div id="help">A/D или ◀ ▶ — движение<br>W/Space/▲ — прыжок<br>ДОБЫТЬ — ресурс / E<br>УДАР — атака / F<br>Инвентарь — материалы и крафт</div>
+<div id="message"></div>
+<div id="quickbar">
+ <button class="secondary selected" id="mineMode">⛏ Добыть</button>
+ <button class="secondary" id="buildMode">▦ Строить</button>
+ <button class="secondary" id="invBtn">🎒 Инвентарь</button>
+ <button class="secondary" id="baseBtn">🏚 База</button>
+ <button class="secondary" id="ritualBtn">☠ Ритуалы</button>
+ <button class="secondary" id="eatBtn">🍎 Еда</button>
+</div>
+<div class="mobile-controls">
+ <div class="cluster"><button class="ctrl" id="left">◀</button><button class="ctrl" id="right">▶</button><button class="ctrl" id="jump">▲</button></div>
+ <div class="cluster"><button class="ctrl action" id="actionBtn">ДОБЫТЬ</button><button class="ctrl action" id="attackBtn">УДАР</button></div>
+</div>
+<div id="toast"></div>
+
+
+<div id="coopPanel" class="hidden" style="position:absolute;z-index:12;inset:12% 5% 12%;background:#111827f7;border:1px solid #ffffff35;border-radius:16px;padding:14px;overflow:auto;box-shadow:0 20px 70px #0009">
+ <div class="panelHead"><h2>👥 Онлайн-кооператив</h2><button class="secondary" id="closeCoop">✕</button></div>
+ <p class="sub">Экспериментальный P2P-режим: один игрок создаёт комнату, друг подключается по коду. Для соединения обоим нужен интернет и открытая страница игры.</p>
+ <div class="item" style="margin-bottom:10px">
+  <div class="itemName">Создать комнату</div><div class="itemDesc">Будь хостом мира и отправь другу код комнаты.</div>
+  <button class="primary" id="hostRoom" style="width:100%">Создать комнату</button>
+  <div id="roomCode" style="font-size:22px;font-weight:800;letter-spacing:3px;margin:8px 0">Код появится здесь</div>
+  <button class="secondary" id="copyRoom" style="width:100%">Скопировать код</button>
+ </div>
+ <div class="item" style="margin-bottom:10px">
+  <div class="itemName">Подключиться к другу</div><div class="itemDesc">Введи код, который прислал хост.</div>
+  <input id="joinCode" placeholder="Например, ASHEN-482193" style="width:100%;padding:10px;margin:8px 0;border-radius:8px;background:#0b1220;color:#fff;border:1px solid #334155">
+  <button class="primary" id="joinRoom" style="width:100%">Подключиться</button>
+ </div>
+ <div id="coopStatus" class="sub">Статус: не подключено</div>
+ <div id="coopChat" style="height:90px;overflow:auto;background:#080d18;border-radius:8px;padding:8px;margin:8px 0;font-size:12px"></div>
+ <input id="chatText" placeholder="Сообщение другу..." style="width:100%;padding:10px;border-radius:8px;background:#0b1220;color:#fff;border:1px solid #334155">
+ <button class="secondary" id="sendChat" style="width:100%;margin-top:7px">Отправить сообщение</button>
+ <p class="sub" style="font-size:11px">Примечание: это ранний сетевой прототип. Игроки и чат синхронизируются, хост передаёт снимок мира при подключении; синхронизацию врагов, боссов и всех действий ещё нужно доработать и протестировать.</p>
+</div>
+
+<div id="basePanel" class="hidden" style="position:absolute;z-index:8;inset:10% 5% 10%;background:#111827f7;border:1px solid #ffffff35;border-radius:16px;padding:14px;overflow:auto;box-shadow:0 20px 70px #0009">
+ <div class="panelHead"><h2>🏚 Строительство базы</h2><button class="secondary" id="closeBase">Закрыть</button></div>
+ <p class="sub">Построй убежище рядом с персонажем. Постройки сохраняются вместе с миром.</p>
+ <div class="grid">
+  <div class="item"><div class="itemTop"><div class="itemIcon">🧱</div><div><div class="itemName">Укреплённая стена</div><div class="itemDesc">12 досок + 4 камня. Строит защитную стену вокруг игрока.</div></div></div><button class="secondary" id="buildWalls">Построить</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🚪</div><div><div class="itemName">Дверной проём</div><div class="itemDesc">4 доски. Оставляет проход в стене.</div></div></div><button class="secondary" id="buildDoor">Установить</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🪤</div><div><div class="itemName">Ловушка</div><div class="itemDesc">3 доски + 2 железа. Защитный элемент у базы.</div></div></div><button class="secondary" id="buildTrap">Установить</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">⚡</div><div><div class="itemName">Генератор</div><div class="itemDesc">6 железа + 4 угля. Декоративный модуль базы.</div></div></div><button class="secondary" id="buildGenerator">Создать</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🛏️</div><div><div class="itemName">Кровать</div><div class="itemDesc">6 досок. Точка отдыха и восстановления.</div></div></div><button class="secondary" id="buildBed">Поставить</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🔥</div><div><div class="itemName">Костёр</div><div class="itemDesc">4 дерева + 3 камня. Источник света и уюта.</div></div></div><button class="secondary" id="buildFire">Развести</button></div>
+ </div>
+</div>
+<div id="ritualPanel" class="hidden" style="position:absolute;z-index:8;inset:10% 5% 10%;background:#111827f7;border:1px solid #ffffff35;border-radius:16px;padding:14px;overflow:auto;box-shadow:0 20px 70px #0009">
+ <div class="panelHead"><h2>☠ Ритуалы призыва боссов</h2><button class="secondary" id="closeRitual">Закрыть</button></div>
+ <p class="sub">Призывай древних существ, когда будешь готов. Одновременно может существовать только один босс.</p>
+ <div class="grid">
+  <div class="item"><div class="itemTop"><div class="itemIcon">👁️</div><div><div class="itemName">Глаз Бездны</div><div class="itemDesc">10 дерева + 3 меди · 180 здоровья</div></div></div><button class="secondary" id="summonEye">Призвать</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🩸</div><div><div class="itemName">Кровавый Древний</div><div class="itemDesc">8 железа + 4 кристалла · 320 здоровья</div></div></div><button class="secondary" id="summonBlood">Призвать</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🌋</div><div><div class="itemName">Пепельный Титан</div><div class="itemDesc">8 обсидиана + 5 угля · 500 здоровья</div></div></div><button class="secondary" id="summonTitan">Призвать</button></div>
+  <div class="item"><div class="itemTop"><div class="itemIcon">🐙</div><div><div class="itemName">Ктулху, Спящий</div><div class="itemDesc">6 мифрила + 3 пустотной стали · 900 здоровья</div></div></div><button class="secondary" id="summonCthulhu">Призвать</button></div>
+ </div>
+</div>
+
+<div id="inventoryPanel" class="hidden">
+ <div class="panelHead"><h2>🎒 Инвентарь и крафт</h2><button class="secondary" id="closeInv">✕ Закрыть</button></div>
+ <div class="statline" style="margin-bottom:9px">Монеты: <b id="invCoins">0</b> · Уровень: <b id="invLevel">1</b> · Опыт: <b id="invXP">0</b></div>
+ <div class="tabs"><button class="secondary selected" data-tab="materials">Материалы</button><button class="secondary" data-tab="weapons">Оружие</button><button class="secondary" data-tab="tools">Кирки</button><button class="secondary" data-tab="armor">Броня</button><button class="secondary" data-tab="craft">Крафт</button><button class="secondary" data-tab="trade">Торговец</button></div>
+ <div id="invContent"></div>
+</div>
+<div id="overlay">
+ <div class="card">
+  <div style="font-size:30px;margin-bottom:8px">🌘 🪓 ⛏️</div>
+  <h1>ASHEN<br>WORLD</h1>
+  <p class="sub">Мир пал. Исследуй лес, джунгли, вулканические земли, пустоши и подземные пещеры. Улучшай кирку, добывай редкие руды, создавай броню и переживай ночи: в разных биомах обитают разные монстры.</p>
+  <p class="sub"><b>Новое в v0.5:</b> база, ритуалы призыва боссов, подземные лаборатории, режим «Новая игра+» и экспериментальный онлайн-кооператив.</p>
+  <button class="primary" id="startBtn">ПРОДОЛЖИТЬ / НАЧАТЬ</button><button class="secondary" id="newWorldBtn" style="width:100%;margin-top:8px">🌍 Создать новый мир</button>
+  <button class="secondary" id="newGamePlusBtn" style="width:100%;margin-top:8px">♻ Новая игра+ (сохранить экипировку)</button>
+  <button class="secondary" id="coopBtn" style="width:100%;margin-top:8px">👥 Онлайн-кооператив</button>
+  <p style="font-size:11px;color:#94a3b8;margin-bottom:0">На компьютере: A/D, W/Space, E, F. На телефоне — экранные кнопки.</p>
+ </div>
+</div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d'),$=id=>document.getElementById(id),game=$('game');
+let W=0,H=0,dpr=1,camX=0,camY=0,last=0,elapsed=0,day=1,dayClock=0,state='menu',world=[],surface=[],enemies=[],particles=[],keys={},selectedMode='mine',boss=null,bossAwake=false,bossDefeated=false,nightSpawn=0,activeTab='materials',currentBiome='Лес';
+const TILE=32,WORLD_W=170,WORLD_H=34;
+const T={AIR:0,GRASS:1,DIRT:2,STONE:3,WOOD:4,LEAF:5,PLANK:6,IRON:7,GOLD:8,ADAMANT:9,VIBRANIUM:10,COAL:11,COPPER:12,CRYSTAL:13,OBSIDIAN:14,MYTHRIL:15,VOIDSTEEL:16};
+const materialDefs={
+ wood:{name:'Дерево',icon:'🪵',desc:'Строительство и базовые инструменты.',tier:1,damage:8,price:1,color:'#a36b3f'},
+ stone:{name:'Камень',icon:'🪨',desc:'Прочный ранний материал.',tier:2,damage:13,price:2,color:'#8b95a5'},
+ coal:{name:'Уголь',icon:'⚫',desc:'Топливо для будущей плавки.',tier:2,damage:0,price:2,color:'#404552'},
+ copper:{name:'Медь',icon:'🟠',desc:'Первая металлическая руда.',tier:2,damage:18,price:3,color:'#c87945'},
+ iron:{name:'Железо',icon:'⛓️',desc:'Надёжный металл для оружия.',tier:3,damage:27,price:5,color:'#aeb8c4'},
+ gold:{name:'Золото',icon:'🟡',desc:'Драгоценный металл, ценится торговцами.',tier:3,damage:34,price:9,color:'#fbbf24'},
+ crystal:{name:'Лунный кристалл',icon:'💎',desc:'Светится в глубинах мира.',tier:4,damage:43,price:14,color:'#7dd3fc'},
+ obsidian:{name:'Обсидиан',icon:'⬛',desc:'Вулканическое стекло с острыми гранями.',tier:4,damage:52,price:18,color:'#8170ac'},
+ mythril:{name:'Мифрил',icon:'🔷',desc:'Лёгкий редкий металл.',tier:5,damage:64,price:26,color:'#5eead4'},
+ adamantite:{name:'Адамантий',icon:'🔴',desc:'Легендарная руда невероятной прочности.',tier:6,damage:78,price:38,color:'#fb7185'},
+ vibranium:{name:'Вибраниум',icon:'🟣',desc:'Редкий инопланетный сплав.',tier:7,damage:95,price:55,color:'#c084fc'},
+ voidsteel:{name:'Пустотная сталь',icon:'🌑',desc:'Материал из заражённых разломов.',tier:8,damage:115,price:80,color:'#94a3b8'}
+};
+const recipes=[
+ {id:'wood_sword',name:'Деревянный меч',icon:'🗡️',mat:{wood:5},damage:8,desc:'Стартовое оружие.'},
+ {id:'stone_sword',name:'Каменный клинок',icon:'⚔️',mat:{stone:8,wood:2},damage:13,desc:'Простой и надёжный.'},
+ {id:'copper_sword',name:'Медный меч',icon:'🗡️',mat:{copper:8,wood:2},damage:18,desc:'Первое металлическое оружие.'},
+ {id:'iron_sword',name:'Железный меч',icon:'⚔️',mat:{iron:10,wood:3},damage:27,desc:'Хорош против ночных тварей.'},
+ {id:'gold_sword',name:'Золотой меч',icon:'✨',mat:{gold:10,iron:4},damage:34,desc:'Драгоценный, но эффективный.'},
+ {id:'crystal_blade',name:'Кристальный клинок',icon:'💠',mat:{crystal:8,iron:5},damage:43,desc:'Оружие холодного света.'},
+ {id:'obsidian_blade',name:'Обсидиановый тесак',icon:'🗡️',mat:{obsidian:8,iron:5},damage:52,desc:'Острый как бритва.'},
+ {id:'mythril_blade',name:'Мифриловый меч',icon:'🔷',mat:{mythril:8,crystal:4},damage:64,desc:'Быстрое редкое оружие.'},
+ {id:'adamantite_blade',name:'Адамантовый меч',icon:'🔴',mat:{adamantite:8,iron:8},damage:78,desc:'Легендарная мощь.'},
+ {id:'vibranium_blade',name:'Вибраниумовый меч',icon:'🟣',mat:{vibranium:6,adamantite:4},damage:95,desc:'Поглощает энергию ударов.'},
+ {id:'void_blade',name:'Клинок пустоты',icon:'🌑',mat:{voidsteel:6,vibranium:4},damage:115,desc:'Оружие поздней стадии.'},
+ {id:'wood_pick',name:'Деревянная кирка',icon:'⛏️',mat:{wood:6},tool:'pick',tier:1,desc:'Добывает камень и уголь.'},
+ {id:'stone_pick',name:'Каменная кирка',icon:'⛏️',mat:{stone:8,wood:3},tool:'pick',tier:2,desc:'Добывает медь и неглубокие руды.'},
+ {id:'copper_pick',name:'Медная кирка',icon:'⛏️',mat:{copper:8,wood:3},tool:'pick',tier:3,desc:'Добывает железо.'},
+ {id:'iron_pick',name:'Железная кирка',icon:'⚒️',mat:{iron:10,wood:3},tool:'pick',tier:4,desc:'Добывает золото и кристаллы.'},
+ {id:'gold_pick',name:'Золотая кирка',icon:'⚒️',mat:{gold:10,iron:4},tool:'pick',tier:5,desc:'Добывает обсидиан и мифрил.'},
+ {id:'crystal_pick',name:'Кристальная кирка',icon:'💎',mat:{crystal:8,iron:5},tool:'pick',tier:6,desc:'Добывает адамантий.'},
+ {id:'mythril_pick',name:'Мифриловая кирка',icon:'🔷',mat:{mythril:8,crystal:4},tool:'pick',tier:7,desc:'Добывает вибраниум.'},
+ {id:'vibranium_pick',name:'Вибраниумовая кирка',icon:'🟣',mat:{vibranium:6,adamantite:4},tool:'pick',tier:8,desc:'Добывает пустотную сталь.'},
+ {id:'void_pick',name:'Кирка пустоты',icon:'🌑',mat:{voidsteel:6,vibranium:4},tool:'pick',tier:9,desc:'Лучший инструмент мира.'},
+ {id:'cloth_armor',name:'Усиленная одежда',icon:'🧥',mat:{wood:8,stone:3},armor:5,desc:'Снижает урон на 5.'},
+ {id:'copper_armor',name:'Медная броня',icon:'🦺',mat:{copper:12,wood:3},armor:10,desc:'Снижает урон на 10.'},
+ {id:'iron_armor',name:'Железная броня',icon:'🛡️',mat:{iron:14,coal:4},armor:18,desc:'Снижает урон на 18.'},
+ {id:'gold_armor',name:'Золотая броня',icon:'✨',mat:{gold:12,iron:6},armor:25,desc:'Снижает урон на 25.'},
+ {id:'obsidian_armor',name:'Обсидиановая броня',icon:'⬛',mat:{obsidian:10,iron:8},armor:33,desc:'Защита от сильных ударов.'},
+ {id:'mythril_armor',name:'Мифриловая броня',icon:'🔷',mat:{mythril:10,crystal:5},armor:42,desc:'Лёгкая и прочная.'},
+ {id:'adamantite_armor',name:'Адамантовая броня',icon:'🔴',mat:{adamantite:10,iron:8},armor:52,desc:'Защита поздней стадии.'},
+ {id:'vibranium_armor',name:'Вибраниумовая броня',icon:'🟣',mat:{vibranium:8,adamantite:5},armor:65,desc:'Отлично гасит удары.'},
+ {id:'void_armor',name:'Доспех пустоты',icon:'🌑',mat:{voidsteel:8,vibranium:5},armor:78,desc:'Максимальная защита.'},
+ {id:'planks',name:'Доски ×4',icon:'🪚',mat:{wood:2},gives:{planks:4},desc:'Для строительства убежища.'},
+ {id:'campfire',name:'Костёр',icon:'🔥',mat:{wood:4,stone:3},gives:{campfire:1},desc:'Уют и восстановление у костра.'},
+ {id:'potion',name:'Лечебное зелье',icon:'🧪',mat:{crystal:1,coal:2},gives:{potions:1},desc:'Восстанавливает 45 здоровья.'}
+];
+let inv={},coins=0,xp=0,level=1,weapon={id:'wood_sword',name:'Деревянный меч',damage:8,icon:'🗡️'},pickaxe={id:'wood_pick',name:'Деревянная кирка',tier:1,icon:'🪓'},armor={id:'cloth',name:'Походная одежда',defense:0,icon:'🧥'},planks=0,campfires=0,potions=0;
+const player={x:150,y:0,vx:0,vy:0,w:22,h:29,hp:100,maxHp:100,onGround:false,dir:1,invuln:0,food:3,attackCd:0};
+function resize(){const r=game.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}window.addEventListener('resize',resize);resize();
+function tile(x,y){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H)return T.STONE;return world[y]?.[x]??T.AIR}function setTile(x,y,v){if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H){world[y][x]=v;if(!applyingRemoteTile&&coopConn&&coopConn.open)try{coopConn.send({type:'tile',x,y,tile:v})}catch(e){}}}
+function biomeAt(x,y=0){if(y>0&&y>=(surface[x]||18)+7)return 'Пещеры';const p=x/WORLD_W;if(p<.22)return 'Лес';if(p<.43)return 'Джунгли';if(p<.62)return 'Вулканические земли';if(p<.82)return 'Пустоши';return 'Лес';}
+function genWorld(){
+ world=Array.from({length:WORLD_H},()=>Array(WORLD_W).fill(T.AIR));surface=[];
+ for(let x=0;x<WORLD_W;x++){let h=18+Math.floor(Math.sin(x*.17)*2+Math.sin(x*.047)*2+(Math.random()-.5)*2);h=Math.max(14,Math.min(23,h));surface[x]=h;
+ for(let y=h;y<WORLD_H;y++){let depth=y-h,bio=biomeAt(x);let t=y===h?T.GRASS:depth<4?T.DIRT:T.STONE; if(bio==='Вулканические земли'&&depth<3&&y>h)t=T.OBSIDIAN; if(bio==='Пустоши'&&depth<3&&y>h)t=T.STONE;
+ if(depth>4&&Math.random()<.035)t=T.COAL;if(depth>6&&Math.random()<(bio==='Джунгли'?.045:.023))t=T.COPPER;if(depth>8&&Math.random()<.018)t=T.IRON;
+ if(depth>10&&Math.random()<.012)t=T.GOLD;if(depth>12&&Math.random()<(bio==='Вулканические земли'?.05:.009))t=T.OBSIDIAN;
+ if(depth>13&&Math.random()<.007)t=T.CRYSTAL;if(depth>15&&Math.random()<.004)t=T.MYTHRIL;
+ if(depth>17&&Math.random()<.0035)t=T.ADAMANT;if(depth>19&&Math.random()<.0025)t=T.VIBRANIUM;if(depth>20&&Math.random()<(bio==='Пустоши'?.012:.0018))t=T.VOIDSTEEL;
+ setTile(x,y,t)}
+ if(Math.random()<.12&&x>4&&x<WORLD_W-5){const trunk=2+Math.floor(Math.random()*3);for(let k=1;k<=trunk;k++)setTile(x,h-k,T.WOOD);for(let ly=h-trunk-2;ly<=h-trunk;ly++)for(let lx=x-2;lx<=x+2;lx++)if(Math.abs(lx-x)+Math.abs(ly-(h-trunk-1))<4&&tile(lx,ly)===T.AIR)setTile(lx,ly,T.LEAF)}
+ }
+ // Небольшие естественные полости создают пещеры под землёй.
+ for(let i=0;i<155;i++){const cx=4+Math.floor(Math.random()*(WORLD_W-8)),cy=surface[cx]+6+Math.floor(Math.random()*14),rx=2+Math.floor(Math.random()*4),ry=1+Math.floor(Math.random()*3);for(let yy=cy-ry;yy<=cy+ry;yy++)for(let xx=cx-rx;xx<=cx+rx;xx++)if((xx-cx)**2/(rx*rx)+(yy-cy)**2/(ry*ry)<1&&yy<WORLD_H-1)setTile(xx,yy,T.AIR)}
+
+ // Заброшенные объекты в глубинах: лаборатории, бункеры и руины.
+ for(let i=0;i<14;i++){
+   const cx=10+Math.floor(Math.random()*(WORLD_W-20));
+   const floor=Math.min(WORLD_H-5, surface[cx]+10+Math.floor(Math.random()*9));
+   const width=6+Math.floor(Math.random()*5), height=4+Math.floor(Math.random()*3);
+   const left=Math.max(1,Math.min(WORLD_W-width-2,cx-width>>1));
+   // Вычищаем помещение и выкладываем стены и пол из старых плит.
+   for(let xx=left;xx<left+width;xx++){
+     for(let yy=floor-height;yy<=floor;yy++){
+       if(yy>=0&&yy<WORLD_H-1){
+         if(xx===left||xx===left+width-1||yy===floor||yy===floor-height) setTile(xx,yy,(i%3===0?T.IRON:T.PLANK));
+         else setTile(xx,yy,T.AIR);
+       }
+     }
+   }
+   // Разбитые перегородки, лабораторные стойки и светящиеся контейнеры.
+   if(i%3===0){
+     for(let xx=left+2;xx<left+width-2;xx+=2) if(floor-2>0) setTile(xx,floor-2,T.IRON);
+     setTile(left+2,floor-1,T.CRYSTAL); setTile(left+width-3,floor-1,T.COAL);
+   } else if(i%3===1){
+     setTile(left+2,floor-1,T.GOLD); setTile(left+width-3,floor-1,T.COPPER);
+     setTile(left+Math.floor(width/2),floor-height+1,T.IRON);
+   } else {
+     for(let xx=left+1;xx<left+width-1;xx++) if(Math.random()<.3)setTile(xx,floor-1,T.OBSIDIAN);
+   }
+ }
+
+ const sx=8,g=surface[sx];for(let x=sx-2;x<=sx+3;x++)setTile(x,g-1,T.PLANK);for(let y=g-4;y<g;y++){setTile(sx-2,y,T.PLANK);setTile(sx+3,y,T.PLANK)}for(let x=sx-2;x<=sx+3;x++)setTile(x,g-4,T.PLANK);setTile(sx+3,g-2,T.AIR);
+}
+function reset(){
+ genWorld();inv={wood:8,stone:3,coal:0,copper:0,iron:0,gold:0,crystal:0,obsidian:0,mythril:0,adamantite:0,vibranium:0,voidsteel:0,planks:0,campfires:0,potions:0};coins=10;xp=0;level=1;planks=0;campfires=0;potions=0;weapon={id:'wood_sword',name:'Деревянный меч',damage:8,icon:'🗡️'};pickaxe={id:'wood_pick',name:'Деревянная кирка',tier:1,icon:'⛏️'};armor={id:'cloth',name:'Походная одежда',defense:0,icon:'🧥'};
+ player.x=8*TILE;player.y=(surface[8]-2)*TILE;player.vx=player.vy=0;player.hp=100;player.food=3;player.invuln=0;player.attackCd=0;enemies=[];particles=[];boss=null;bossAwake=false;bossDefeated=false;elapsed=0;day=1;dayClock=0;nightSpawn=0;state='playing';
+ $('overlay').classList.add('hidden');$('inventoryPanel').classList.add('hidden');$('basePanel').classList.add('hidden');$('ritualPanel').classList.add('hidden');$('coopPanel').classList.add('hidden');message('Исследуй биомы, улучшай кирку и сохраняй прогресс!',3);updateUI();saveGame();
+}
+const SAVE_KEY='ashen_world_save_v04';
+function saveGame(){try{if(state==='menu')return;const data={version:4,world,surface,inv,coins,xp,level,weapon,pickaxe,armor,player:{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,food:player.food,kills:player.kills||0},day,dayClock,bossAwake,bossDefeated,boss,enemies,elapsed};localStorage.setItem(SAVE_KEY,JSON.stringify(data));}catch(e){console.warn('Save failed',e)}}
+function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY)||localStorage.getItem('ashen_world_save_v03');if(!raw)return false;const d=JSON.parse(raw);if(!d||!d.world||!d.inv)return false;world=d.world;surface=d.surface||[];inv=d.inv;coins=d.coins||0;xp=d.xp||0;level=d.level||1;weapon=d.weapon||weapon;pickaxe=d.pickaxe||pickaxe;armor=d.armor||armor;Object.assign(player,d.player||{});player.vx=0;player.vy=0;player.invuln=0;player.attackCd=0;day=d.day||1;dayClock=d.dayClock||0;bossAwake=!!d.bossAwake;bossDefeated=!!d.bossDefeated;boss=d.boss||null;enemies=d.enemies||[];elapsed=d.elapsed||0;particles=[];nightSpawn=3;state='playing';$('overlay').classList.add('hidden');$('inventoryPanel').classList.add('hidden');$('basePanel').classList.add('hidden');$('ritualPanel').classList.add('hidden');$('coopPanel').classList.add('hidden');updateUI();message('Мир загружен. Прогресс восстановлен!',3);return true}catch(e){console.warn('Load failed',e);return false}}
+$('startBtn').onclick=()=>{if(!loadGame())reset()};$('newWorldBtn').onclick=()=>{if(confirm('Создать новый мир? Старое локальное сохранение будет заменено.')){try{localStorage.removeItem(SAVE_KEY)}catch(e){}reset()}};
+
+function message(t,d=2){const m=$('message');m.textContent=t;m.style.opacity=1;clearTimeout(message.timer);message.timer=setTimeout(()=>m.style.opacity=0,d*1000)}
+function toast(t){$('toast').textContent=t;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').textContent='',2400)}
+function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
+function solid(t){return [T.GRASS,T.DIRT,T.STONE,T.WOOD,T.PLANK,T.COAL,T.COPPER,T.IRON,T.GOLD,T.OBSIDIAN,T.CRYSTAL,T.MYTHRIL,T.ADAMANT,T.VIBRANIUM,T.VOIDSTEEL].includes(t)}
+function collide(x,y,w,h){for(let ty=Math.floor(y/TILE);ty<=Math.floor((y+h-1)/TILE);ty++)for(let tx=Math.floor(x/TILE);tx<=Math.floor((x+w-1)/TILE);tx++)if(solid(tile(tx,ty)))return true;return false}
+function movePlayer(dt){let ax=0;if(keys.left||keys.a)ax--;if(keys.right||keys.d)ax++;player.vx=ax*190;if(ax)player.dir=ax;player.x+=player.vx*dt;if(collide(player.x,player.y,player.w,player.h)){player.x-=player.vx*dt;player.vx=0}player.vy+=700*dt;player.y+=player.vy*dt;player.onGround=false;if(collide(player.x,player.y,player.w,player.h)){if(player.vy>0){while(collide(player.x,player.y,player.w,player.h))player.y-=1;player.onGround=true}else while(collide(player.x,player.y,player.w,player.h))player.y+=1;player.vy=0}player.x=Math.max(0,Math.min(WORLD_W*TILE-player.w,player.x));if(player.y>WORLD_H*TILE)player.hp=0;if(player.invuln>0)player.invuln-=dt;if(player.attackCd>0)player.attackCd-=dt}
+function jump(){if(state==='playing'&&player.onGround){player.vy=-330;player.onGround=false}}
+function nearestTile(){let best=null,bd=Infinity;for(let y=Math.floor((player.y-50)/TILE);y<=Math.floor((player.y+player.h+35)/TILE);y++)for(let x=Math.floor((player.x-40)/TILE);x<=Math.floor((player.x+player.w+40)/TILE);x++){let t=tile(x,y),d=Math.hypot(x*TILE+16-(player.x+player.w/2),y*TILE+16-(player.y+player.h/2));if(t!==T.AIR&&d<78&&d<bd){best={x,y,t};bd=d}}return best}
+function itemKey(t){return ({[T.WOOD]:'wood',[T.LEAF]:'wood',[T.PLANK]:'planks',[T.DIRT]:'stone',[T.GRASS]:'stone',[T.STONE]:'stone',[T.COAL]:'coal',[T.COPPER]:'copper',[T.IRON]:'iron',[T.GOLD]:'gold',[T.CRYSTAL]:'crystal',[T.OBSIDIAN]:'obsidian',[T.MYTHRIL]:'mythril',[T.ADAMANT]:'adamantite',[T.VIBRANIUM]:'vibranium',[T.VOIDSTEEL]:'voidsteel'})[t]}
+function action(){
+ if(state!=='playing')return;
+ if(selectedMode==='build'){const tx=Math.floor((player.x+player.w/2+player.dir*TILE*1.4)/TILE),ty=Math.floor((player.y+player.h*.65)/TILE);if((inv.planks||0)>0&&tile(tx,ty)===T.AIR){setTile(tx,ty,T.PLANK);inv.planks--;toast('Поставлена доска')}else if((inv.planks||0)<=0)toast('Сначала создай доски в крафте');else toast('Место занято');updateUI();return}
+ const n=nearestTile();if(!n){attack();return}const k=itemKey(n.t);
+ const requiredTier=({stone:1,coal:1,copper:2,iron:3,gold:4,crystal:4,obsidian:5,mythril:5,adamantite:6,vibranium:7,voidsteel:8})[k]||1; if(k&&pickaxe.tier<requiredTier){toast('Нужна кирка уровня '+requiredTier+' или выше');return}
+ if(k){setTile(n.x,n.y,T.AIR);inv[k]=(inv[k]||0)+(n.t===T.WOOD?2:1);gainXP(2);burst(n.x*TILE+16,n.y*TILE+16,materialDefs[k]?.color||'#aaa');toast('+'+(n.t===T.WOOD?2:1)+' '+(materialDefs[k]?.name||k));}
+ else if(n.t===T.LEAF){setTile(n.x,n.y,T.AIR);inv.wood=(inv.wood||0)+1}
+ else setTile(n.x,n.y,T.AIR);
+ checkBossProgress();updateUI();saveGame();
+}
+function gainXP(n){xp+=n;while(xp>=level*35){xp-=level*35;level++;player.maxHp+=5;player.hp=Math.min(player.maxHp,player.hp+15);coins+=5;message('Уровень '+level+'! +5 монет и здоровье',2)}}
+function attack(){if(player.attackCd>0)return;player.attackCd=.42;const range={x:player.x+(player.dir>0?player.w:-32),y:player.y+1,w:38,h:player.h};let hit=false;
+ for(const e of enemies){if(overlap(range,e)){e.hp-=weapon.damage;hit=true;burst(e.x+e.w/2,e.y+e.h/2,'#fb7185');if(e.hp<=0){player.kills=(player.kills||0)+1;coins+=2+Math.floor(Math.random()*4);gainXP(12);if(Math.random()<.3)player.food++;toast('Монстр повержен: +монеты, +опыт')}}}
+ enemies=enemies.filter(e=>e.hp>0);
+ if(boss&&overlap(range,boss)){boss.hp-=weapon.damage;hit=true;burst(boss.x+boss.w/2,boss.y+boss.h/2,'#c084fc');if(boss.hp<=0){boss=null;bossDefeated=true;coins+=100;gainXP(100);message('БОСС ПОВЕРЖЕН! +100 монет',4)}}
+ if(!hit)message('Удар · '+weapon.damage+' урона',.6);checkBossProgress();updateUI();saveGame()}
+function checkBossProgress(){if(!bossAwake&&!bossDefeated&&Object.values(inv).reduce((a,b)=>a+b,0)>=22&&level>=2){bossAwake=true;boss={x:Math.min(WORLD_W*TILE-100,player.x+430),y:0,w:64,h:68,hp:300,maxHp:300,attack:1};message('ПРОБУДИЛСЯ ПЕПЕЛЬНЫЙ СТРАЖ!',4)}}
+function spawnEnemy(){const side=Math.random()<.5?-1:1;let x=Math.max(0,Math.min(WORLD_W*TILE-30,player.x+side*(W*.65+Math.random()*180))),g=Math.max(0,Math.min(WORLD_W-1,Math.floor(x/TILE))),bio=biomeAt(g),kind;if(bio==='Джунгли')kind='jungle';else if(bio==='Вулканические земли')kind='ember';else if(bio==='Пустоши')kind='wraith';else kind=Math.random()<.3?'crawler':'zombie';const base={crawler:38,zombie:44,jungle:58,ember:68,wraith:76}[kind]||44;enemies.push({x,y:(surface[g]-1)*TILE,w:kind==='wraith'?26:24,h:28,hp:base+day*4,maxHp:base+day*4,kind,attack:0,damage:{crawler:6,zombie:8,jungle:11,ember:14,wraith:16}[kind]||8})}
+function enemyAI(dt){for(const e of enemies){e.x+=Math.sign(player.x-e.x)*(e.kind==='crawler'?58:40)*dt;const g=Math.max(0,Math.min(WORLD_W-1,Math.floor((e.x+e.w/2)/TILE)));e.y+=(surface[g]*TILE-e.h-e.y)*Math.min(1,dt*5);e.attack-=dt;if(overlap(player,e)&&e.attack<=0&&player.invuln<=0){player.hp-=Math.max(1,(e.damage||8)*(1-Math.min(.8,(armor.defense||0)/100)));player.invuln=.8;e.attack=1;message('Тебя ранили!',.7)}}if(boss){boss.x+=Math.sign(player.x-boss.x)*Math.min(Math.abs(player.x-boss.x),48*dt);const g=Math.max(0,Math.min(WORLD_W-1,Math.floor((boss.x+boss.w/2)/TILE)));boss.y+=(surface[g]*TILE-boss.h-boss.y)*Math.min(1,dt*4);boss.attack-=dt;if(overlap(player,boss)&&boss.attack<=0&&player.invuln<=0){player.hp-=Math.max(2,(boss.damage||22)-(armor.defense||0)*.22);player.invuln=1.1;boss.attack=1.4;message((boss.name||'Босс')+' наносит тяжёлый удар!',1)}}}
+function burst(x,y,color){for(let i=0;i<8;i++)particles.push({x,y,vx:(Math.random()-.5)*120,vy:(Math.random()-.5)*120,life:.45,color})}
+function updateUI(){$('hpText').textContent=Math.max(0,Math.ceil(player.hp))+'/'+player.maxHp;$('hpFill').style.width=Math.max(0,player.hp/player.maxHp*100)+'%';$('weaponText').textContent=weapon.name+' · '+weapon.damage+' урона · '+pickaxe.icon+' '+pickaxe.name+' · 🛡️ '+(armor.defense||0);$('coinText').textContent=coins;$('killText').textContent=player.kills||0;$('bossText').textContent=bossDefeated?'побеждён':bossAwake?(boss?Math.ceil(boss.hp)+'/'+boss.maxHp:'побеждён'):'не пробуждён';$('levelText').textContent=level;$('xpText').textContent=xp;currentBiome=biomeAt(Math.max(0,Math.min(WORLD_W-1,Math.floor((player.x+player.w/2)/TILE))),Math.floor(player.y/TILE));$('timeLabel').textContent='День '+day+' · '+(dayClock>=45?'Ночь':dayClock<15?'Утро':dayClock<30?'День':'Вечер')+' · '+currentBiome;$('invCoins').textContent=coins;$('invLevel').textContent=level;$('invXP').textContent=xp}
+function drawTile(t,x,y){let px=x*TILE-camX,py=y*TILE-camY;const colors={[T.VOIDSTEEL]:'#64748b',[T.GRASS]:'#67875a',[T.DIRT]:'#644735',[T.STONE]:'#555c6a',[T.WOOD]:'#754b2f',[T.LEAF]:'#355b49',[T.PLANK]:'#96683f',[T.COAL]:'#282d38',[T.COPPER]:'#b86b40',[T.IRON]:'#aeb8c4',[T.GOLD]:'#fbbf24',[T.CRYSTAL]:'#7dd3fc',[T.OBSIDIAN]:'#40334f',[T.MYTHRIL]:'#5eead4',[T.ADAMANT]:'#fb7185',[T.VIBRANIUM]:'#c084fc',[T.VOIDSTEEL]:'#94a3b8'};ctx.fillStyle=colors[t]||'#444';if(t===T.GRASS){const bio=biomeAt(x,y);ctx.fillStyle=bio==='Джунгли'?'#276749':bio==='Пустоши'?'#81745b':'#67875a'}else if(t===T.DIRT&&biomeAt(x,y)==='Пустоши'){ctx.fillStyle='#76654d'}ctx.fillRect(px,py,TILE,TILE);if(t===T.GRASS){ctx.fillStyle=biomeAt(x,y)==='Джунгли'?'#65a30d':biomeAt(x,y)==='Пустоши'?'#a8996b':'#a3c77b';ctx.fillRect(px,py,TILE,5)}else if([T.IRON,T.GOLD,T.COPPER,T.CRYSTAL,T.OBSIDIAN,T.MYTHRIL,T.ADAMANT,T.VIBRANIUM,T.VOIDSTEEL,T.COAL].includes(t)){ctx.fillStyle='#ffffff66';ctx.fillRect(px+5,py+6,7,5);ctx.fillRect(px+19,py+20,5,5)}else if(t===T.WOOD){ctx.fillStyle='#bd8550';ctx.fillRect(px+8,py,4,TILE)}else if(t===T.PLANK){ctx.strokeStyle='#5f402d';ctx.beginPath();ctx.moveTo(px,py+10);ctx.lineTo(px+TILE,py+10);ctx.moveTo(px,py+22);ctx.lineTo(px+TILE,py+22);ctx.stroke()}ctx.strokeStyle='#00000013';ctx.strokeRect(px,py,TILE,TILE)}
+function drawCharacter(x,y,w,h,color,hero=false){ctx.fillStyle='#0006';ctx.fillRect(x+3,y+h-2,w-6,4);ctx.fillStyle=color;ctx.fillRect(x+3,y+9,w-6,h-10);ctx.fillStyle=hero?'#f0c8a1':'#9da88a';ctx.fillRect(x+4,y,w-8,12);ctx.fillStyle=hero?'#26354a':'#5c2029';ctx.fillRect(x+5,y+3,w-10,5);ctx.fillStyle='#111827';ctx.fillRect(x+14,y+5,3,3);if(!hero){ctx.fillStyle='#ef4444';ctx.fillRect(x+5,y+5,3,3);ctx.fillRect(x+w-8,y+5,3,3)}}
+function render(dt){ctx.clearRect(0,0,W,H);let night=dayClock>=45;let sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,night?'#0b1025':'#344c69');sky.addColorStop(1,night?'#25203d':'#a4a18a');const bioNow=biomeAt(Math.max(0,Math.min(WORLD_W-1,Math.floor(player.x/TILE))),Math.floor(player.y/TILE));if(bioNow==='Джунгли')sky.addColorStop(0,night?'#071b18':'#174b3a');if(bioNow==='Вулканические земли')sky.addColorStop(0,night?'#240d12':'#713f2b');if(bioNow==='Пустоши')sky.addColorStop(0,night?'#151525':'#77715c');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);camX=Math.max(0,Math.min(WORLD_W*TILE-W,player.x-W*.42));camY=Math.max(0,Math.min(WORLD_H*TILE-H,player.y-H*.48));let x0=Math.max(0,Math.floor(camX/TILE)),x1=Math.min(WORLD_W-1,Math.ceil((camX+W)/TILE)),y0=Math.max(0,Math.floor(camY/TILE)),y1=Math.min(WORLD_H-1,Math.ceil((camY+H)/TILE));for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){let t=tile(x,y);if(t!==T.AIR)drawTile(t,x,y)}
+ for(const e of enemies){drawCharacter(e.x-camX,e.y-camY,e.w,e.h,({crawler:'#7f1d1d',zombie:'#56704f',jungle:'#15803d',ember:'#ea580c',wraith:'#a78bfa'})[e.kind]||'#56704f');ctx.fillStyle='#ef4444';ctx.fillRect(e.x-camX,e.y-camY-5,e.w*Math.max(0,e.hp/e.maxHp),3)}
+ if(boss){let bx=boss.x-camX,by=boss.y-camY;drawCharacter(bx,by,boss.w,boss.h,boss.color||'#6d28d9');ctx.fillStyle='#f0abfc';ctx.fillRect(bx+8,by+20,8,5);ctx.fillRect(bx+boss.w-16,by+20,8,5);ctx.fillStyle='#111827';ctx.fillRect(bx-4,by-13,boss.w+8,7);ctx.fillStyle='#c084fc';ctx.fillRect(bx-4,by-13,(boss.w+8)*Math.max(0,boss.hp/boss.maxHp),7);ctx.fillStyle='#fff';ctx.font='bold 11px system-ui';ctx.fillText(boss.name||'ПЕПЕЛЬНЫЙ СТРАЖ',bx-15,by-20)}
+ if(player.invuln<=0||Math.floor(elapsed*14)%2===0)drawCharacter(player.x-camX,player.y-camY,player.w,player.h,'#d1fae5',true);
+ for(const rp of Object.values(remotePlayers)){drawCharacter(rp.x-camX,rp.y-camY,22,29,'#60a5fa',true);ctx.fillStyle='#dbeafe';ctx.font='10px sans-serif';ctx.fillText(rp.name||'Друг',rp.x-camX-3,rp.y-camY-6)}
+ if(player.attackCd>.22){ctx.strokeStyle='#fef08a';ctx.lineWidth=4;ctx.beginPath();let ax=player.x-camX+player.w/2,ay=player.y-camY+player.h/2;ctx.arc(ax+player.dir*17,ay,18,player.dir>0?-.9:Math.PI-.9,player.dir>0?.9:Math.PI+.9);ctx.stroke()}
+ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.life<=0){particles.splice(i,1);continue}ctx.globalAlpha=p.life/.45;ctx.fillStyle=p.color;ctx.fillRect(p.x-camX,p.y-camY,4,4)}ctx.globalAlpha=1;
+ if(night){ctx.fillStyle='#070b1d55';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fca5a5';ctx.font='bold 12px system-ui';ctx.fillText('НОЧЬ — МОНСТРЫ ВЫХОДЯТ',W/2-86,H-105)}
+}
+function fmtReq(mat){return Object.entries(mat).map(([k,v])=>(materialDefs[k]?.icon||'📦')+' '+(materialDefs[k]?.name||k)+' ×'+v).join(' · ')}
+function canAfford(mat){return Object.entries(mat).every(([k,v])=>(inv[k]||0)>=v)}
+function spend(mat){for(const [k,v] of Object.entries(mat))inv[k]-=v}
+function craft(r){if(!canAfford(r.mat)){toast('Не хватает материалов: '+fmtReq(r.mat));return}spend(r.mat);if(r.damage){weapon={id:r.id,name:r.name,damage:r.damage,icon:r.icon};message('Создано: '+r.name+' · '+r.damage+' урона',2)}else if(r.tool==='pick'){if(r.tier>pickaxe.tier){pickaxe={id:r.id,name:r.name,tier:r.tier,icon:r.icon};toast('Кирка улучшена: уровень '+r.tier)}else{toast('Эта кирка не лучше текущей')}}else if(r.armor){if(r.armor>(armor.defense||0)){armor={id:r.id,name:r.name,defense:r.armor,icon:r.icon};toast('Броня экипирована: защита '+r.armor)}else{toast('Эта броня не лучше текущей')}}else if(r.gives){for(const [k,v] of Object.entries(r.gives)){if(k==='planks'){inv.planks=(inv.planks||0)+v}else if(k==='campfire'){inv.campfires=(inv.campfires||0)+v}else if(k==='potions'){inv.potions=(inv.potions||0)+v}}toast('Создано: '+r.name)}gainXP(5);renderInventory();updateUI();saveGame()}
+function sell(k){const def=materialDefs[k];if(!def||(inv[k]||0)<1){toast('Нет материала для продажи');return}inv[k]--;coins+=def.price;toast('Продано: +'+def.price+' монет');renderInventory();updateUI()}
+function buyPotion(){if(coins<12){toast('Нужно 12 монет');return}coins-=12;inv.potions=(inv.potions||0)+1;renderInventory();updateUI();saveGame();toast('Куплено лечебное зелье')}
+function renderInventory(){
+ const content=$('invContent');content.innerHTML='';
+ if(activeTab==='materials'){
+  const grid=document.createElement('div');grid.className='grid';
+  for(const [k,d] of Object.entries(materialDefs)){const count=inv[k]||0;const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${d.icon}</div><div><div class="itemName">${d.name}</div><div class="itemCount">В наличии: ${count}</div></div></div><div class="itemDesc">${d.desc}<br>Урон оружия: ${d.damage||'—'} · Цена: ${d.price} 🪙</div><button class="secondary" ${count<1?'disabled':''}>Продать 1 · ${d.price} 🪙</button>`;card.querySelector('button').onclick=()=>sell(k);grid.appendChild(card)}
+  for(const [k,d] of Object.entries({planks:{name:'Доски',icon:'🪚'},campfires:{name:'Костры',icon:'🔥'},potions:{name:'Зелья',icon:'🧪'}})){const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${d.icon}</div><div><div class="itemName">${d.name}</div><div class="itemCount">В наличии: ${inv[k]||0}</div></div></div>`;grid.appendChild(card)}content.appendChild(grid);
+ }else if(activeTab==='weapons'){
+  const grid=document.createElement('div');grid.className='grid';for(const r of recipes.filter(x=>x.damage)){const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${r.icon}</div><div><div class="itemName">${r.name}</div><div class="itemCount">${r.damage} урона</div></div></div><div class="itemDesc">${r.desc}<br>${fmtReq(r.mat)}</div><button class="secondary">${weapon.id===r.id?'Экипировано':'Создать / экипировать'}</button>`;card.querySelector('button').disabled=weapon.id===r.id;card.querySelector('button').onclick=()=>craft(r);grid.appendChild(card)}content.appendChild(grid);
+ }else if(activeTab==='tools'){
+  const grid=document.createElement('div');grid.className='grid';for(const r of recipes.filter(x=>x.tool==='pick')){const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${r.icon}</div><div><div class="itemName">${r.name}</div><div class="itemCount">Уровень кирки: ${r.tier}</div></div></div><div class="itemDesc">${r.desc}<br>Рецепт: ${fmtReq(r.mat)}</div><button class="secondary">${pickaxe.id===r.id?'Экипирована':(pickaxe.tier>=r.tier?'Создать снова':'Создать / улучшить')}</button>`;card.querySelector('button').disabled=pickaxe.id===r.id;card.querySelector('button').onclick=()=>craft(r);grid.appendChild(card)}const cur=document.createElement('div');cur.className='item';cur.innerHTML=`<div class="itemName">Сейчас: ${pickaxe.icon} ${pickaxe.name}</div><div class="itemDesc">Уровень добычи: ${pickaxe.tier}. Чем выше уровень кирки, тем более редкие руды можно добывать.</div>`;grid.prepend(cur);content.appendChild(grid);
+ }else if(activeTab==='armor'){
+  const grid=document.createElement('div');grid.className='grid';for(const r of recipes.filter(x=>x.armor)){const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${r.icon}</div><div><div class="itemName">${r.name}</div><div class="itemCount">Защита: ${r.armor}</div></div></div><div class="itemDesc">${r.desc}<br>Рецепт: ${fmtReq(r.mat)}</div><button class="secondary">${armor.id===r.id?'Надета':'Создать / надеть'}</button>`;card.querySelector('button').disabled=armor.id===r.id;card.querySelector('button').onclick=()=>craft(r);grid.appendChild(card)}const cur=document.createElement('div');cur.className='item';cur.innerHTML=`<div class="itemName">Сейчас: ${armor.icon} ${armor.name}</div><div class="itemDesc">Защита ${armor.defense||0}: уменьшает урон монстров.</div>`;grid.prepend(cur);content.appendChild(grid);
+ }else if(activeTab==='craft'){
+  const grid=document.createElement('div');grid.className='grid';for(const r of recipes.filter(x=>!x.damage)){const card=document.createElement('div');card.className='item';card.innerHTML=`<div class="itemTop"><div class="itemIcon">${r.icon}</div><div><div class="itemName">${r.name}</div><div class="itemDesc">${r.desc}</div></div></div><div class="itemDesc">Рецепт: ${fmtReq(r.mat)}</div><button class="secondary">Создать</button>`;card.querySelector('button').onclick=()=>craft(r);grid.appendChild(card)}content.appendChild(grid);
+ }else{
+  const box=document.createElement('div');box.className='item';box.innerHTML=`<div style="font-size:30px">🧙‍♂️ Торговец-скиталец</div><p class="sub">Он покупает добытые материалы и продаёт лечебные зелья. Цена продажи зависит от редкости ресурса.</p><p>Твои монеты: <b style="color:#fbbf24">${coins} 🪙</b></p><button class="primary" id="buyPotion">Купить лечебное зелье · 12 🪙</button><p class="itemDesc">Убивай монстров, продавай редкие руды и побеждай боссов, чтобы получать монеты.</p>`;box.querySelector('#buyPotion').onclick=buyPotion;content.appendChild(box);
+ }
+ $('invCoins').textContent=coins;$('invLevel').textContent=level;$('invXP').textContent=xp;
+}
+function openInventory(){if(state!=='playing')return;$('basePanel').classList.add('hidden');$('ritualPanel').classList.add('hidden');$('inventoryPanel').classList.remove('hidden');renderInventory()}
+$('invBtn').onclick=openInventory;$('closeInv').onclick=()=>$('inventoryPanel').classList.add('hidden');
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));renderInventory()});
+function setMode(mode){selectedMode=mode;$('mineMode').classList.toggle('selected',mode==='mine');$('buildMode').classList.toggle('selected',mode==='build');$('actionBtn').textContent=mode==='mine'?'ДОБЫТЬ':'СТРОИТЬ'}
+$('mineMode').onclick=()=>setMode('mine');$('buildMode').onclick=()=>setMode('build');$('actionBtn').onclick=action;$('attackBtn').onclick=attack;$('jump').onclick=jump;
+$('left').onpointerdown=e=>{e.preventDefault();keys.left=true};$('left').onpointerup=$('left').onpointercancel=()=>keys.left=false;$('right').onpointerdown=e=>{e.preventDefault();keys.right=true};$('right').onpointerup=$('right').onpointercancel=()=>keys.right=false;
+$('eatBtn').onclick=()=>{if(inv.potions>0&&player.hp<player.maxHp){inv.potions--;player.hp=Math.min(player.maxHp,player.hp+45);toast('Зелье восстановило здоровье')}else if(player.food>0&&player.hp<player.maxHp){player.food--;player.hp=Math.min(player.maxHp,player.hp+28);toast('Ты восстановил здоровье')}else toast(inv.potions||player.food?'Здоровье уже полное':'Нет еды или зелий');updateUI();saveGame()};
+
+
+// v0.5 replayability: New Game+ keeps the player's gear and currency.
+$('newGamePlusBtn').onclick=()=>{
+ if(!confirm('Начать Новую игру+? Мир и обычные ресурсы будут перегенерированы, но экипировка, уровень и монеты сохранятся.'))return;
+ const keep={coins,xp,level,weapon:{...weapon},pickaxe:{...pickaxe},armor:{...armor}};
+ try{localStorage.removeItem(SAVE_KEY)}catch(e){}
+ reset();
+ coins=keep.coins;xp=keep.xp;level=keep.level;weapon=keep.weapon;pickaxe=keep.pickaxe;armor=keep.armor;
+ player.maxHp=100+Math.max(0,level-1)*5;player.hp=player.maxHp;
+ updateUI();saveGame();toast('Новая игра+ началась: экипировка сохранена');
+};
+$('coopBtn').onclick=()=>{$('coopPanel').classList.remove('hidden');$('basePanel').classList.add('hidden');$('ritualPanel').classList.add('hidden');$('inventoryPanel').classList.add('hidden')};
+$('closeCoop').onclick=()=>$('coopPanel').classList.add('hidden');
+
+// Experimental PeerJS co-op: room host shares initial world; player positions and chat sync in real time.
+let coopPeer=null,coopConn=null,coopHost=false,remotePlayers={},coopRoom='',applyingRemoteTile=false;
+function coopStatus(s){$('coopStatus').textContent='Статус: '+s}
+function coopLog(s){const box=$('coopChat');const line=document.createElement('div');line.textContent=s;box.appendChild(line);box.scrollTop=box.scrollHeight}
+function coopSend(data){try{if(coopConn&&coopConn.open)coopConn.send(data)}catch(e){}}
+function coopCleanup(){try{if(coopConn)coopConn.close();if(coopPeer)coopPeer.destroy()}catch(e){}coopConn=null;coopPeer=null;remotePlayers={};coopHost=false}
+function setupCoopConnection(conn,isHost){
+ coopConn=conn;coopHost=isHost;
+ conn.on('open',()=>{
+  coopStatus('подключено к комнате '+coopRoom);
+  if(isHost){conn.send({type:'world',world:world,surface:surface,inv:inv,coins:coins,day:day,dayClock:dayClock,player:{x:player.x,y:player.y}})}
+  else {conn.send({type:'hello',player:{x:player.x,y:player.y}})}
+  coopLog('Соединение установлено.');
+ });
+ conn.on('data',data=>{
+  if(!data||!data.type)return;
+  if(data.type==='world'&&!isHost){
+   if(data.world){world=data.world;surface=data.surface||surface;inv=data.inv||inv;coins=data.coins||coins;day=data.day||day;dayClock=data.dayClock||0;player.x=data.player?.x||player.x;player.y=data.player?.y||player.y;updateUI();saveGame();coopLog('Получен снимок мира хоста.')}
+  }else if(data.type==='pos'){
+   remotePlayers[data.id||'friend']={x:data.x,y:data.y,dir:data.dir||1,name:data.name||'Друг'};
+  }else if(data.type==='tile'&&!isHost){
+   applyingRemoteTile=true;setTile(data.x,data.y,data.tile);applyingRemoteTile=false;saveGame();
+  }else if(data.type==='chat'){coopLog((data.name||'Друг')+': '+data.text)}
+  else if(data.type==='hello'){coopLog('Друг подключился к твоему миру.')}
+ });
+ conn.on('close',()=>{coopStatus('соединение закрыто');remotePlayers={};coopConn=null});
+ conn.on('error',e=>coopStatus('ошибка соединения: '+(e.type||'проверь код и интернет')));
+}
+$('hostRoom').onclick=()=>{
+ if(!window.Peer){coopStatus('не удалось загрузить сетевую библиотеку; проверь интернет и обнови страницу');return}
+ coopCleanup();coopHost=true;coopRoom='ASHEN-'+String(Math.floor(100000+Math.random()*900000));
+ const peerId=coopRoom.toLowerCase();
+ coopStatus('создаём комнату...');
+ coopPeer=new Peer(peerId);
+ coopPeer.on('open',id=>{ $('roomCode').textContent=coopRoom;coopStatus('комната создана; отправь код другу');coopLog('Комната '+coopRoom+' готова.')});
+ coopPeer.on('connection',conn=>{if(coopConn){conn.on('open',()=>conn.send({type:'chat',name:'Система',text:'В комнате уже есть игрок.'}));conn.close();return}setupCoopConnection(conn,true)});
+ coopPeer.on('error',e=>coopStatus('ошибка: '+e.type+' — попробуй создать комнату ещё раз'));
+};
+$('joinRoom').onclick=()=>{
+ if(!window.Peer){coopStatus('не удалось загрузить сетевую библиотеку; проверь интернет и обнови страницу');return}
+ const code=$('joinCode').value.trim().toUpperCase().replace(/[^A-Z0-9-]/g,'');
+ if(!/^ASHEN-\d{6}$/.test(code)){coopStatus('введи код вида ASHEN-123456');return}
+ coopCleanup();coopRoom=code;coopStatus('подключаемся к '+code+'...');
+ coopPeer=new Peer();
+ coopPeer.on('open',()=>{const conn=coopPeer.connect(code.toLowerCase(),{reliable:true});setupCoopConnection(conn,false)});
+ coopPeer.on('error',e=>coopStatus('ошибка: '+e.type+' — проверь код, интернет и доступность сервиса'));
+};
+$('copyRoom').onclick=()=>{if(coopRoom){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(coopRoom).then(()=>toast('Код скопирован')).catch(()=>toast('Код комнаты: '+coopRoom));else toast('Код комнаты: '+coopRoom)}};
+$('sendChat').onclick=()=>{const text=$('chatText').value.trim();if(!text)return;coopSend({type:'chat',name:coopHost?'Хост':'Игрок',text});coopLog('Ты: '+text);$('chatText').value=''};
+setInterval(()=>{if(state==='playing'&&coopConn&&coopConn.open){coopSend({type:'pos',id:coopHost?'host':'guest',x:player.x,y:player.y,dir:player.dir,name:coopHost?'Хост':'Игрок'})}},100);
+
+// ASHEN WORLD v0.4: base construction, boss rituals and extra underground sites.
+function payCost(cost){
+ for(const k in cost) if((inv[k]||0)<cost[k]){toast('Не хватает: '+(materialDefs[k]?.name||k));return false}
+ for(const k in cost) inv[k]-=cost[k];
+ return true;
+}
+function putNearPlayer(tileType,dx,dy){
+ const tx=Math.max(1,Math.min(WORLD_W-2,Math.floor((player.x+player.w/2)/TILE)+dx));
+ const ty=Math.max(1,Math.min(WORLD_H-2,Math.floor((player.y+player.h/2)/TILE)+dy));
+ setTile(tx,ty,tileType); burst(tx*TILE+16,ty*TILE+16,'#fbbf24'); updateUI();saveGame();
+}
+function buildBase(type){
+ if(state!=='playing')return;
+ if(type==='walls'){
+   if(!payCost({planks:12,stone:4}))return;
+   const px=Math.floor((player.x+player.w/2)/TILE), py=Math.floor((player.y+player.h)/TILE);
+   for(let dx=-3;dx<=3;dx++){setTile(px+dx,py,T.PLANK);setTile(px+dx,py-4,T.PLANK)}
+   for(let dy=-3;dy<=0;dy++){setTile(px-3,py+dy,T.PLANK);setTile(px+3,py+dy,T.PLANK)}
+   setTile(px,py,T.AIR);setTile(px,py-1,T.AIR);message('Убежище построено!',2);
+ }else if(type==='door'){
+   if(!payCost({planks:4}))return;putNearPlayer(T.AIR,1,0);putNearPlayer(T.PLANK,1,-1);toast('Проём установлен');
+ }else if(type==='trap'){
+   if(!payCost({planks:3,iron:2}))return;putNearPlayer(T.IRON,2,0);toast('Ловушка установлена');
+ }else if(type==='generator'){
+   if(!payCost({iron:6,coal:4}))return;putNearPlayer(T.GOLD,2,-1);putNearPlayer(T.IRON,3,-1);toast('Генератор установлен');
+ }else if(type==='bed'){
+   if(!payCost({planks:6}))return;putNearPlayer(T.PLANK,1,-1);putNearPlayer(T.PLANK,2,-1);toast('Кровать установлена');
+ }else if(type==='fire'){
+   if(!payCost({wood:4,stone:3}))return;inv.campfires=(inv.campfires||0)+1;putNearPlayer(T.GOLD,1,0);toast('Костёр установлен');
+ }
+ updateUI();saveGame();
+}
+function summonBoss(id){
+ if(state!=='playing')return;
+ if(boss){toast('Сначала победи текущего босса!');return}
+ const defs={
+  eye:{name:'ГЛАЗ БЕЗДНЫ',hp:180,damage:10,w:48,h:48,color:'#7c3aed',cost:{wood:10,copper:3}},
+  blood:{name:'КРОВАВЫЙ ДРЕВНИЙ',hp:320,damage:16,w:58,h:62,color:'#be123c',cost:{iron:8,crystal:4}},
+  titan:{name:'ПЕПЕЛЬНЫЙ ТИТАН',hp:500,damage:22,w:70,h:76,color:'#ea580c',cost:{obsidian:8,coal:5}},
+  cthulhu:{name:'КТУЛХУ, СПЯЩИЙ',hp:900,damage:30,w:84,h:88,color:'#0f766e',cost:{mythril:6,voidsteel:3}}
+ };
+ const d=defs[id];if(!d||!payCost(d.cost))return;
+ boss={x:Math.max(40,Math.min(WORLD_W*TILE-120,player.x+220)),y:player.y,w:d.w,h:d.h,hp:d.hp,maxHp:d.hp,attack:1.2,type:id,name:d.name,damage:d.damage,color:d.color};
+ bossAwake=true;bossDefeated=false;message('РИТУАЛ ЗАВЕРШЁН: '+d.name,4);$('ritualPanel').classList.add('hidden');updateUI();saveGame();
+}
+$('baseBtn').onclick=()=>{$('basePanel').classList.remove('hidden');$('ritualPanel').classList.add('hidden');$('inventoryPanel').classList.add('hidden')};
+$('ritualBtn').onclick=()=>{$('ritualPanel').classList.remove('hidden');$('basePanel').classList.add('hidden');$('inventoryPanel').classList.add('hidden')};
+$('closeBase').onclick=()=>$('basePanel').classList.add('hidden');
+$('closeRitual').onclick=()=>$('ritualPanel').classList.add('hidden');
+$('buildWalls').onclick=()=>buildBase('walls');$('buildDoor').onclick=()=>buildBase('door');
+$('buildTrap').onclick=()=>buildBase('trap');$('buildGenerator').onclick=()=>buildBase('generator');
+$('buildBed').onclick=()=>buildBase('bed');$('buildFire').onclick=()=>buildBase('fire');
+$('summonEye').onclick=()=>summonBoss('eye');$('summonBlood').onclick=()=>summonBoss('blood');
+$('summonTitan').onclick=()=>summonBoss('titan');$('summonCthulhu').onclick=()=>summonBoss('cthulhu');
+
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp',' ','a','d','w','A','D','W'].includes(e.key))e.preventDefault();if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=true;if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=true;if(e.key==='ArrowUp'||e.key===' '||e.key==='w'||e.key==='W')jump();if(e.key==='e'||e.key==='E')action();if(e.key==='f'||e.key==='F')attack();if(e.key==='i'||e.key==='I')$('inventoryPanel').classList.contains('hidden')?openInventory():$('inventoryPanel').classList.add('hidden')});
+window.addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A')keys.left=false;if(e.key==='ArrowRight'||e.key==='d'||e.key==='D')keys.right=false});
+canvas.addEventListener('pointerdown',e=>{if(state!=='playing'||!$('inventoryPanel').classList.contains('hidden'))return;const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;if(y>H*.24&&y<H*.78&&selectedMode==='mine')action()});
+function frame(now){const dt=Math.min((now-last)/1000||0,.04);last=now;if(state==='playing') {elapsed+=dt;dayClock+=dt;if(Math.floor(elapsed)%5===0&&Math.floor(elapsed)!==Math.floor(elapsed-dt))saveGame();if(dayClock>=60){dayClock=0;day++;player.hp=Math.min(player.maxHp,player.hp+12);message('Рассвет! +12 здоровья',2)}movePlayer(dt);if(dayClock>=45){nightSpawn-=dt;if(nightSpawn<=0){spawnEnemy();nightSpawn=Math.max(1.5,4.4-enemies.length*.13)}}enemyAI(dt);if(player.hp<=0){state='dead';$('overlay').classList.remove('hidden');$('overlay').querySelector('h1').innerHTML='ТЫ НЕ<br>ВЫЖИЛ';saveGame();$('overlay').querySelector('.sub').textContent='Мир оказался слишком жесток. Твой прогресс сохранён — нажми кнопку, чтобы продолжить.';$('startBtn').textContent='ПОПРОБОВАТЬ СНОВА'}updateUI()}render(dt);requestAnimationFrame(frame)}
+updateUI();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
